@@ -1,9 +1,3 @@
-Flask==2.2.5
-gunicorn==20.1.0
-torch==2.0.1
-transformers==4.34.0
-datasets==2.14.6
-evaluate==0.4.0
-scikit-learn==1.3.2
-nltk==3.8.1
-openai==0.27.7
+version https://git-lfs.github.com/spec/v1
+oid sha256:93d0ad76c6ffe2efda445cdfba0a9d51c47cbe1a34d46fad61a4ecb4ada13a84
+size 153
