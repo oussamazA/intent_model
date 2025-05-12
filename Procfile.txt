@@ -1,3 +1,1 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:1647f4fd0a47616ba0a233446551ed6c9c69f81f5494a54815f747abd4ae99cf
-size 61
+web: gunicorn app:app --timeout 120
