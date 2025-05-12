@@ -1,3 +1,14 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:93d0ad76c6ffe2efda445cdfba0a9d51c47cbe1a34d46fad61a4ecb4ada13a84
-size 153
+
+transformers==4.40.1
+datasets==2.19.0
+scikit-learn==1.4.1.post1
+nltk==3.8.1
+torch==2.3.0
+openai==1.12.0
+sentencepiece==0.2.0
+sacremoses==0.1.1
+numpy==1.26.4
+tqdm==4.66.2
+gunicorn==21.2.0
+flask==3.0.2
+python-dotenv==1.0.1
