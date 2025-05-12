@@ -1,39 +1,21 @@
-from flask import Flask, request, jsonify
-import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import numpy as np
+import os
+from pathlib import Path
+import boto3
 
-app = Flask(__name__)
+# Initialize S3 client
+s3 = boto3.client(
+    's3',
+    endpoint_url=os.environ['bucketeer-9ed767dc-a15d-49e8-a0a5-0870a333bf2d'],
+    aws_access_key_id=os.environ['AKIARVGPJVYVE7V2DYI6'],
+    aws_secret_access_key=os.environ['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']
+)
 
-# load model & tokenizer from the folder you saved in Colab
-MODEL_DIR = "intent_model"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
-model     = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
-model.eval()
-
-@app.route("/predict", methods=["POST"])
-def predict():
-    data = request.get_json()
-    text = data.get("text", "")
-    if not text:
-        return jsonify({"error": "No text provided"}), 400
-
-    # tokenize
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=64)
-    with torch.no_grad():
-        logits = model(**inputs).logits
-        probs  = torch.softmax(logits, dim=-1).cpu().numpy()[0]
-        idx    = int(np.argmax(probs))
-        confidence = float(probs[idx])
-
-    # map back to tag
-    id2tag = {v:k for k,v in model.config.label2id.items()} if hasattr(model.config, "label2id") else {}
-    tag = id2tag.get(idx, str(idx))
-
-    return jsonify({
-        "intent": tag,
-        "confidence": confidence
-    })
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+# Download model on startup
+MODEL_PATH = "intent_model/pytorch_model.bin"
+if not Path(MODEL_PATH).exists():
+    Path("intent_model").mkdir(parents=True, exist_ok=True)
+    s3.download_file(
+        os.environ['BUCKETEER_BUCKET_NAME'],
+        'models/pytorch_model.bin',  # Your model path in S3
+        MODEL_PATH
+    )
