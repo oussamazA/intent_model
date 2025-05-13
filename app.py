@@ -1,21 +1,37 @@
 import os
-from pathlib import Path
-import boto3
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 
-# Initialize S3 client
-s3 = boto3.client(
-    's3',
-    endpoint_url=os.environ['bucketeer-9ed767dc-a15d-49e8-a0a5-0870a333bf2d'],
-    aws_access_key_id=os.environ['AKIARVGPJVYVE7V2DYI6'],
-    aws_secret_access_key=os.environ['hX8uziR3GgL0HGSjyA4Ad2Eg1vEk8kuvYMdUm+3I']
-)
+# If you're using PyTorch to load your model:
+import torch
 
-# Download model on startup
+app = Flask(__name__)
+CORS(app)
+
+# Load your model once on startup (adjust path & loading as needed)
 MODEL_PATH = "intent_model/pytorch_model.bin"
-if not Path(MODEL_PATH).exists():
-    Path("intent_model").mkdir(parents=True, exist_ok=True)
-    s3.download_file(
-        os.environ['BUCKETEER_BUCKET_NAME'],
-        'models/pytorch_model.bin',  # Your model path in S3
-        MODEL_PATH
-    )
+# Example: torch.load; replace with your actual loading code
+model = torch.load(MODEL_PATH, map_location='cpu')
+model.eval()
+
+@app.route('/api/respond', methods=['POST'])
+def respond():
+    """
+    Expects JSON: { "userId": "<id>", "message": "<text>" }
+    Returns JSON: { "reply": "<generated reply>" }
+    """
+    data = request.get_json(force=True)
+    user_id = data.get('userId', '')
+    message = data.get('message', '')
+
+    # TODO: Replace with your real inference logic:
+    # inputs = tokenizer(message, return_tensors='pt')
+    # outputs = model.generate(**inputs)
+    # reply_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    reply_text = "This is a placeholder reply."
+
+    return jsonify({'reply': reply_text})
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
