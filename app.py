@@ -2,11 +2,7 @@ import os
 import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from transformers import (
-    pipeline,
-    AutoTokenizer,
-    AutoModelForCausalLM,
-)
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
 app = Flask(__name__)
 CORS(app)
@@ -14,16 +10,9 @@ app.logger.setLevel(logging.INFO)
 
 generator = None
 try:
-    app.logger.info("Loading tokenizer & safetensors model…")
-
-    tokenizer = AutoTokenizer.from_pretrained(".", use_safetensors=True)
-    model     = AutoModelForCausalLM.from_pretrained(
-        ".", 
-        trust_remote_code=False, 
-        low_cpu_mem_usage=True,
-        # no need to specify torch_dtype/device
-    )
-
+    app.logger.info("Loading tokenizer & model…")
+    tokenizer = AutoTokenizer.from_pretrained(".")
+    model     = AutoModelForCausalLM.from_pretrained(".")
     generator = pipeline(
         "text-generation",
         model=model,
@@ -37,7 +26,6 @@ try:
     app.logger.info("Model loaded successfully!")
 except Exception as e:
     app.logger.error(f"Model load failed: {e}")
-    generator = None
 
 @app.route("/api/respond", methods=["POST"])
 def respond():
