@@ -1,51 +1,67 @@
 import os
+import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from transformers import pipeline  # Changed to use generic pipeline
+from transformers import pipeline, AutoConfig
 
 app = Flask(__name__)
 CORS(app)
+app.logger.setLevel(logging.INFO)
 
-# Initialize model pipeline
 classifier = None
 
 def load_model():
     global classifier
     try:
-        # Use zero-code classification for simplicity
-        classifier = pipeline("text-classification", model=".")
-        print("Model loaded successfully!")
+        app.logger.info("Starting model load...")
+        
+        # Verify files exist
+        required_files = [
+            'config.json', 'model.safetensors',
+            'tokenizer.json', 'vocab.txt'
+        ]
+        for f in required_files:
+            if not os.path.exists(f):
+                raise FileNotFoundError(f"Missing file: {f}")
+
+        # Load with reduced memory footprint
+        config = AutoConfig.from_pretrained(".")
+        classifier = pipeline(
+            "text-classification",
+            model=".",
+            config=config,
+            device=-1,  # Use CPU
+            torch_dtype="auto"
+        )
+        
+        app.logger.info("Model loaded successfully!")
+        
     except Exception as e:
-        print(f"Error loading model: {str(e)}")
+        app.logger.error(f"Model load failed: {str(e)}")
+        classifier = None
 
 load_model()
 
 @app.route('/api/respond', methods=['POST'])
 def respond():
-    if classifier is None:
-        return jsonify({'error': 'Model not loaded'}), 500
-
-    data = request.get_json(force=True)
-    message = data.get('message', '')
+    if not classifier:
+        return jsonify({'error': 'Model failed to initialize'}), 503
     
     try:
-        # Get prediction
-        result = classifier(message)[0]
+        data = request.get_json()
+        message = data.get('message', '')
         
-        # Map label to responses
-        responses = {
-            "greeting": "Hello! How can I help you today?",
-            "account": "I can help with account-related questions.",
-            "support": "For technical support, please visit our help center.",
-            "default": "Could you please clarify your request?"
-        }
-        
-        reply = responses.get(result["label"], responses["default"])
-        
-        return jsonify({'reply': reply})
+        if not message:
+            return jsonify({'error': 'Empty message'}), 400
+            
+        result = classifier(message[:256])[0]  # Limit input length
+        return jsonify({
+            'reply': f"Predicted label: {result['label']} (confidence: {result['score']:.2f})"
+        })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Prediction error: {str(e)}")
+        return jsonify({'error': 'Processing failed'}), 500
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
