@@ -1,12 +1,10 @@
+# app.py
+
 import os
 import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from transformers import (
-    pipeline,
-    AutoTokenizer,
-    AutoModelForCausalLM,
-)
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
 app = Flask(__name__)
 CORS(app)
@@ -16,27 +14,18 @@ app.logger.setLevel(logging.INFO)
 generator = None
 
 try:
-    app.logger.info("Loading tokenizer and model from local directory…")
+    app.logger.info("Loading tokenizer & model from local directory…")
 
-    # Tell the tokenizer to use safetensors if present
     tokenizer = AutoTokenizer.from_pretrained(
-        ".",
-        use_safetensors=True,
+        ".", 
+        use_safetensors=True
     )
+    model = AutoModelForCausalLM.from_pretrained(".")
 
-    # Load your model (safetensors) with low memory usage
-    model = AutoModelForCausalLM.from_pretrained(
-        ".",
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        low_cpu_mem_usage=True,
-    )
-
-    # Build a text-generation pipeline
     generator = pipeline(
         "text-generation",
         model=model,
         tokenizer=tokenizer,
-        device=0 if torch.cuda.is_available() else -1,
         return_full_text=False,
         max_length=256,
         do_sample=True,
@@ -47,7 +36,7 @@ try:
     app.logger.info("Model loaded successfully!")
 
 except Exception as e:
-    app.logger.error(f"Failed to load model/safetensors: {e}")
+    app.logger.error(f"Model load failed: {e}")
     generator = None
 
 
@@ -63,12 +52,8 @@ def respond():
         return jsonify({"error": "Empty message"}), 400
 
     try:
-        outputs = generator(
-            message,
-            max_length=256,
-            num_return_sequences=1,
-        )
-        reply = outputs[0].get("generated_text", "")
+        output = generator(message, num_return_sequences=1)
+        reply = output[0].get("generated_text", "")
         return jsonify({"reply": reply})
     except Exception as e:
         app.logger.error(f"Generation error: {e}")
