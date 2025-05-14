@@ -1,44 +1,49 @@
 import os
+import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from transformers import pipeline
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
 app = Flask(__name__)
 CORS(app)
+app.logger.setLevel(logging.INFO)
 
-# DigitalOcean requires 8080 port
-PORT = int(os.environ.get("PORT", 8080))
-
-# Simplified model loading
+generator = None
 try:
-    classifier = pipeline("text-classification", model=".")
-    print("Model loaded successfully!")
+    app.logger.info("Loading tokenizer & model…")
+    tokenizer = AutoTokenizer.from_pretrained(".")
+    model     = AutoModelForCausalLM.from_pretrained(".")
+    generator = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        return_full_text=False,
+        max_length=256,
+        do_sample=True,
+        top_k=50,
+        top_p=0.95,
+    )
+    app.logger.info("Model loaded successfully!")
 except Exception as e:
-    print(f"Model load failed: {str(e)}")
-    classifier = None
+    app.logger.error(f"Model load failed: {e}")
 
-@app.route('/')
-def health_check():
-    return jsonify({
-        "status": "ready" if classifier else "error",
-        "model": "loaded" if classifier else "missing"
-    })
-
-@app.route('/api/respond', methods=['POST'])
+@app.route("/api/respond", methods=["POST"])
 def respond():
-    if not classifier:
-        return jsonify({"error": "Model not loaded"}), 503
-    
-    data = request.get_json()
-    message = data.get('message', '')[:500]  # Limit input length
-    
+    if generator is None:
+        return jsonify({"error": "Model not initialized"}), 503
+
+    data = request.get_json(force=True)
+    msg  = (data.get("message") or "").strip()
+    if not msg:
+        return jsonify({"error": "Empty message"}), 400
+
     try:
-        result = classifier(message)[0]
-        return jsonify({
-            "reply": f"Predicted: {result['label']} ({result['score']:.2f})"
-        })
+        out = generator(msg, num_return_sequences=1)
+        return jsonify({"reply": out[0]["generated_text"]})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        app.logger.error(f"Generation error: {e}")
+        return jsonify({"error": "Generation failed"}), 500
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=PORT, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
