@@ -17,4 +17,5 @@ tokenizers==0.19
 protobuf==3.20.3
 flask-cors==4.0.0
 safetensors==0.4.2
-torch
+TensorFlow
+Flax
