@@ -1,9 +1,0 @@
-name: lobster-app-7ifjb
-services:
-- name: web
-  github:
-    branch: main
-  http_port: 8080
-  health_check:
-    path: /
-    initial_delay_seconds: 300  # Model needs time to load
