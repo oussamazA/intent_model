@@ -1,66 +1,46 @@
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-import torch
+from transformers import pipeline  # Changed to use generic pipeline
 
 app = Flask(__name__)
 CORS(app)
 
-# Load model and tokenizer during startup
-model = None
-tokenizer = None
+# Initialize model pipeline
+classifier = None
 
 def load_model():
-    global model, tokenizer
+    global classifier
     try:
-        # Load tokenizer from local files
-        tokenizer = AutoTokenizer.from_pretrained(".")
-        
-        # Load model from safetensors
-        model = AutoModelForSequenceClassification.from_pretrained(".")
-        
-        print("Model and tokenizer loaded successfully!")
+        # Use zero-code classification for simplicity
+        classifier = pipeline("text-classification", model=".")
+        print("Model loaded successfully!")
     except Exception as e:
         print(f"Error loading model: {str(e)}")
 
-# Load the model when the app starts
 load_model()
 
 @app.route('/api/respond', methods=['POST'])
 def respond():
-    if model is None or tokenizer is None:
+    if classifier is None:
         return jsonify({'error': 'Model not loaded'}), 500
 
     data = request.get_json(force=True)
     message = data.get('message', '')
     
     try:
-        # Tokenize input
-        inputs = tokenizer(
-            message,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=128
-        )
-        
         # Get prediction
-        with torch.no_grad():
-            outputs = model(**inputs)
+        result = classifier(message)[0]
         
-        # Get predicted label
-        predicted_class = torch.argmax(outputs.logits, dim=1).item()
+        # Map label to responses
+        responses = {
+            "greeting": "Hello! How can I help you today?",
+            "account": "I can help with account-related questions.",
+            "support": "For technical support, please visit our help center.",
+            "default": "Could you please clarify your request?"
+        }
         
-        # Add your custom responses based on predicted class
-        responses = [
-            "Hello! How can I help you today?",
-            "I can help with account-related questions.",
-            "For technical support, please visit our help center.",
-            "Could you please clarify your request?"
-        ]
-        
-        reply = responses[predicted_class % len(responses)]
+        reply = responses.get(result["label"], responses["default"])
         
         return jsonify({'reply': reply})
         
